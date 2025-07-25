@@ -1,0 +1,47 @@
+using System;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+
+public class CPHInline
+{
+    public bool Execute()
+    {
+        // Home Assistant Configuration
+        string haUrl = "http://192.168.2.142:8123";
+        string token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJmOWNiZTk0ZDdiZjk0MjM1YmVlMWJlZTQ0ZDYzNjUwNSIsImlhdCI6MTc1MzQ2NjEzMiwiZXhwIjoyMDY4ODI2MTMyfQ.lSFzChh4PvVf7WqhU6O4KjTRYQpKnmrPq1krs1CjG1o";
+        string entityId = "light.adams_lamp";
+
+        // Get whether to turn on or off from argument
+        bool turnOn = args.ContainsKey("turnOn") && args["turnOn"].ToString().ToLower() == "true";
+
+        string service = turnOn ? "turn_on" : "turn_off";
+        string serviceUrl = $"{haUrl}/api/services/light/{service}";
+
+        var data = new
+        {
+            entity_id = entityId
+        };
+
+        string json = JsonConvert.SerializeObject(data);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using (var client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = client.PostAsync(serviceUrl, content).Result;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                CPH.LogError($"Failed to toggle light. Status code: {response.StatusCode}");
+                return false;
+            }
+
+            CPH.LogInfo($"Successfully sent {service} to {entityId}");
+        }
+
+        return true;
+    }
+}

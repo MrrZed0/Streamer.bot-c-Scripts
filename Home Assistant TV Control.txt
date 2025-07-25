@@ -1,0 +1,61 @@
+using System;
+using System.Net.Http;
+using System.Text;
+using Newtonsoft.Json;
+
+public class CPHInline
+{
+    public bool Execute()
+    {
+        // Home Assistant details
+        string haUrl = "http://192.168.2.142:8123";
+        string token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJmOWNiZTk0ZDdiZjk0MjM1YmVlMWJlZTQ0ZDYzNjUwNSIsImlhdCI6MTc1MzQ2NjEzMiwiZXhwIjoyMDY4ODI2MTMyfQ.lSFzChh4PvVf7WqhU6O4KjTRYQpKnmrPq1krs1CjG1o";
+
+        // Harmony Hub remote entity ID
+        string entityId = "remote.harmony_hub";
+
+        // Get whether to turn on or off from args
+        bool turnOn = args.ContainsKey("turnOn") && args["turnOn"].ToString().ToLower() == "true";
+
+        string service = turnOn ? "remote/turn_on" : "remote/turn_off";
+        string serviceUrl = $"{haUrl}/api/services/{service}";
+
+        // Prepare data payload
+        object data;
+        if (turnOn)
+        {
+            data = new
+            {
+                entity_id = entityId,
+                activity = "Watch TV" // exact name of activity in Harmony
+            };
+        }
+        else
+        {
+            data = new
+            {
+                entity_id = entityId
+            };
+        }
+
+        string json = JsonConvert.SerializeObject(data);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using (var client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+            var response = client.PostAsync(serviceUrl, content).Result;
+
+            if (!response.IsSuccessStatusCode)
+            {
+                CPH.LogError($"Failed to send Harmony command. Status code: {response.StatusCode}");
+                return false;
+            }
+
+            CPH.LogInfo($"Harmony command '{service}' sent to {entityId}");
+        }
+
+        return true;
+    }
+}
