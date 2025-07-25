@@ -1,0 +1,48 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+public class CPHInline
+{
+    public bool Execute()
+    {
+        // File paths
+        string blockedPath = @"C:\Program Files\OBS-Studio\files\txt_files\blockedUsers.txt";
+        string badWordsPath = @"C:\Program Files\OBS-Studio\files\txt_files\BadWords.txt";
+        // Get user and message from args
+        string targetUser = args.ContainsKey("targetUser") ? args["targetUser"].ToString().Trim().ToLower() : "";
+        string message = args.ContainsKey("messageStripped") ? args["messageStripped"].ToString().ToLower() : "";
+        // Ensure blocked file exists
+        if (!File.Exists(blockedPath))
+            File.WriteAllText(blockedPath, ""); // create empty file
+        // Load existing blocked users
+        var blockedUsers = File.ReadAllLines(blockedPath).Where(line => !string.IsNullOrWhiteSpace(line)).Select(line => line.Trim().ToLower()).ToList();
+        // Check if user already in file
+        bool userAlreadyBlocked = blockedUsers.Contains(targetUser);
+        CPH.SetArgument("InTextFileBadWords", userAlreadyBlocked ? "true" : "false");
+        // Proceed to check message for bad words
+        if (!File.Exists(badWordsPath))
+        {
+            CPH.SetArgument("BadWords", "false");
+            return true;
+        }
+
+        var badWords = File.ReadAllLines(badWordsPath).Where(line => !string.IsNullOrWhiteSpace(line)).Select(word => word.Trim().ToLower()).ToList();
+        // Tokenize message
+        var messageWords = Regex.Split(message, @"\W+").Where(w => !string.IsNullOrEmpty(w)).ToList();
+        // Check for bad words
+        bool containsBadWord = messageWords.Any(word => badWords.Contains(word));
+        CPH.SetArgument("BadWords", containsBadWord ? "true" : "false");
+        // Append user to file only if not already there and bad word was found
+        if (containsBadWord && !userAlreadyBlocked)
+        {
+            using (StreamWriter sw = File.AppendText(blockedPath))
+            {
+                sw.WriteLine(targetUser);
+            }
+        }
+
+        return true;
+    }
+}
