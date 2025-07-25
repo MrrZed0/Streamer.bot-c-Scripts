@@ -1,0 +1,32 @@
+using System;
+using System.Drawing;
+
+public class CPHInline
+{
+    public bool Execute()
+    {
+        string rawInput = args.ContainsKey("rawInput") ? args["rawInput"].ToString().Trim() : "";
+        Color color = Color.Black; // Default
+        try
+        {
+            // Convert user input to Color
+            color = ColorTranslator.FromHtml(rawInput);
+        }
+        catch
+        {
+            CPH.LogDebug($"Invalid color input: '{rawInput}', using default black");
+        }
+
+        // Set individual ARGB components as arguments
+        CPH.SetArgument("goveeColor.color.a", color.A);
+        CPH.SetArgument("goveeColor.color.r", color.R);
+        CPH.SetArgument("goveeColor.color.g", color.G);
+        CPH.SetArgument("goveeColor.color.b", color.B);
+        // Create ABGR format integer (used by OBS color formats)
+        int abgr = (color.A << 24) | (color.B << 16) | (color.G << 8) | color.R;
+        CPH.SetArgument("goveeColor.obs", abgr);
+        // Optional logging
+        CPH.LogDebug($"ARGB = ({color.A}, {color.R}, {color.G}, {color.B}) | ABGR = 0x{abgr:X8}");
+        return true;
+    }
+}

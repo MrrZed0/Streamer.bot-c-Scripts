@@ -1,0 +1,30 @@
+using System;
+using System.Drawing;
+
+public class CPHInline
+{
+	public bool Execute()
+	{
+		// Get the raw input from the arguments
+		string rawInput = args.ContainsKey("rawInput") ? args["rawInput"].ToString().Trim() : "";
+
+		string hexColor = "#000000"; // Default fallback color
+
+		try
+		{
+			// Convert the input to a Color (from name or hex)
+			Color color = ColorTranslator.FromHtml(rawInput);
+			hexColor = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+		}
+		catch
+		{
+			CPH.LogDebug($"Invalid color input: '{rawInput}' - using default #000000");
+		}
+
+		// Set the hex color as an output argument
+		CPH.SetArgument("goveeColor.html", hexColor);
+		CPH.SetArgument("goveeColor.htmlalpha", hexColor);
+
+		return true;
+	}
+}
