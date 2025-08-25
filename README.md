@@ -35,3 +35,88 @@ Streamer.bot Export:
 This will check if the message or alerts are from the boadcaster if true it wont do anyother action
 U0JBRR+LCAAAAAAABADtV1uL4zYUfi/0P5jAvo2CZMu23Lfp0m7nYcuyO+1Dl6EcSccZs76ksj0XhvnvlXxJ4jhhM+lAW1gHAtInHZ1zvk+X8/T9d563KLCBxQ/ek2vYZgkF2ubi/aP308O6Ms3iYkCgbW4r02HG/IGabpA7NHVWlQ5iS7rcAhprZbJ1M4C7pqqPbXmpBqRs83zEiqzMirb4fWPTgQ577kYsNEz8hc5GbXs+9z3eCHVwpt3CNA14goEgLBSK8JAhEZRTQgWnWnIhlFCjc920v1psuzTEfqIYiwXhgJJwqjQBTCL7JzkNdaTiiE5mYgkyR7dqY1qcIA8qbzX+bKril6xuKvNoB6WQ18dGfcBSZ+Xq0KiRpR9NBVpB3aD58+0tqi9ovM/X91mjbm8mbq1M1a477iqNBuzqExjye3isLSUH/DZQ6qrYcDXzRVWlao3BsjmENiZbrSyXuwTtkdRrCEzmMucGPj1f7KE9jQJ4pCMaEy1CTXgQhUSKMCIJ9RWTgQIMYLE/tXlcu1TF1N9HjlK1JaIetXWziz5vGzeTLM61eCjUPpiUs4hjKommKrGa9BlJVKpsRMADjEAnnM+CucdsdevybHfZkUB9tg9suH9nQHq9Orwd5XhXZVqZAjqCX5akrNT44NyZpOfiFKJ/HSTcgFlh81uNZrZ2tXZS7WU3C/cO8n6LvpFjKM7Im5mVnpWr/iAYPnLgb/xmBkxbXhUF6gwazA9t2n6Z1KZys0tmJKCdcvlPPXFGPp7kTbfcxKNZAt0hfN1r5qCJYc8xkSghEhLQwB6dEbUKjYCROEQZJsiESP1zZMr8GbLRaXeS1d5V6l134vAcsd57cLqdkP1vqrXreQ3FOkPfVLtd7jVUG4o0pAwZgZT59qYQlEgMrJ/2lvA5F6Di+U3xH1ctO1+1rV31nfOzPlOxO7fFN6V6r6lUCKkI4hhIisoqNUlSImKNJOQpo4qFGCfh/02p/umPpUGVJ72YNKZJJIOIKPBjwjkEBDjjNnMyVvaVLjhPX5Sq8RV9zruofxUf5fblN00fI098+9MJwYDZosNPbakhJSe+igIZansHJ/FZMZ7P+WmRslM4V1Wew7pGvaV987Ae5ozj+xLsK3Xdi6szmVfqy1dqqstPlx8Wx7xSVVHYfPSuj533KGtrF5tPaO6GWmcOvs0zWyNNwSYrxvE7Je62nmb9OWeLEVeKo3ZlYXe6Lf2l6CObF8wdyu2F18AyspE8/w0KrBSO6Q8AAA==
 ```
+
+# Choose MP3 File Random
+Streamer.bot Export:
+```
+using System;
+using System.IO;
+using System.Collections.Generic;
+using System.Text.Json;
+
+public class CPHInline
+{
+    public bool Execute()
+    {
+        // Hardcoded settings
+        string folderPath = @"C:\Program Files\OBS-Studio\Files\Sources\Alerts\Alerts_Sounds";
+        string sourceName = "Alerts Sound";
+        bool playEachFileOnce = true;
+        bool noDirectRepeat = true;
+        string playedFilePath = @"C:\Program Files\OBS-Studio\Files\Sources\Alerts\Alerts_Played.txt";
+        if (!Directory.Exists(folderPath))
+        {
+            CPH.LogError($"[Random Sound Alert] Folder not found: {folderPath}");
+            return false;
+        }
+
+        // Get all .mp3 and .flac files
+        List<string> files = new List<string>(Directory.GetFiles(folderPath, "*.mp3"));
+        files.AddRange(Directory.GetFiles(folderPath, "*.flac"));
+        if (files.Count == 0)
+        {
+            CPH.LogError($"[Random Sound Alert] No .mp3 or .flac files found in {folderPath}");
+            return false;
+        }
+
+        // Load played list from file
+        List<string> playedFiles = new List<string>();
+        if (File.Exists(playedFilePath))
+        {
+            playedFiles.AddRange(File.ReadAllLines(playedFilePath));
+        }
+
+        // Remove already played files if playEachFileOnce = true
+        if (playEachFileOnce && files.Count > playedFiles.Count)
+        {
+            foreach (string played in playedFiles)
+            {
+                files.Remove(played);
+            }
+        }
+        else if (files.Count <= playedFiles.Count)
+        {
+            // Reset after all files played
+            playedFiles.Clear();
+            File.WriteAllText(playedFilePath, "");
+        }
+
+        // Get previous file for noDirectRepeat
+        string previous = playedFiles.Count > 0 ? playedFiles[playedFiles.Count - 1] : "";
+        if (noDirectRepeat && files.Count > 1 && !string.IsNullOrEmpty(previous))
+            files.Remove(previous);
+        // Pick random file
+        var rand = new Random();
+        string chosenFile = files[rand.Next(files.Count)];
+        // Update played list and save back to file
+        playedFiles.Add(chosenFile);
+        File.WriteAllLines(playedFilePath, playedFiles);
+        // Build JSON for OBS request
+        var request = new
+        {
+            inputName = sourceName,
+            inputSettings = new
+            {
+                local_file = chosenFile
+            },
+            overlay = true
+        };
+        string jsonPayload = JsonSerializer.Serialize(request);
+        // Send raw OBS request
+        CPH.ObsSendRaw("SetInputSettings", jsonPayload);
+        // Set args for other actions
+        CPH.SetArgument("randomVideo", chosenFile);
+        return true;
+    }
+}
+```
