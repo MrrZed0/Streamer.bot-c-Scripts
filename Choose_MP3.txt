@@ -1,0 +1,80 @@
+using System;
+using System.IO;
+using System.Collections.Generic;
+using System.Text.Json;
+
+public class CPHInline
+{
+    public bool Execute()
+    {
+        // Hardcoded settings
+        string folderPath = @"C:\Program Files\OBS-Studio\Files\Sources\Alerts\Alerts_Sounds";
+        string sourceName = "Alerts Sound";
+        bool playEachFileOnce = true;
+        bool noDirectRepeat = true;
+        string playedFilePath = @"C:\Program Files\OBS-Studio\Files\Sources\Alerts\Alerts_Played.txt";
+        if (!Directory.Exists(folderPath))
+        {
+            CPH.LogError($"[Random Sound Alert] Folder not found: {folderPath}");
+            return false;
+        }
+
+        // Get all .mp3 and .flac files
+        List<string> files = new List<string>(Directory.GetFiles(folderPath, "*.mp3"));
+        files.AddRange(Directory.GetFiles(folderPath, "*.flac"));
+        if (files.Count == 0)
+        {
+            CPH.LogError($"[Random Sound Alert] No .mp3 or .flac files found in {folderPath}");
+            return false;
+        }
+
+        // Load played list from file
+        List<string> playedFiles = new List<string>();
+        if (File.Exists(playedFilePath))
+        {
+            playedFiles.AddRange(File.ReadAllLines(playedFilePath));
+        }
+
+        // Remove already played files if playEachFileOnce = true
+        if (playEachFileOnce && files.Count > playedFiles.Count)
+        {
+            foreach (string played in playedFiles)
+            {
+                files.Remove(played);
+            }
+        }
+        else if (files.Count <= playedFiles.Count)
+        {
+            // Reset after all files played
+            playedFiles.Clear();
+            File.WriteAllText(playedFilePath, "");
+        }
+
+        // Get previous file for noDirectRepeat
+        string previous = playedFiles.Count > 0 ? playedFiles[playedFiles.Count - 1] : "";
+        if (noDirectRepeat && files.Count > 1 && !string.IsNullOrEmpty(previous))
+            files.Remove(previous);
+        // Pick random file
+        var rand = new Random();
+        string chosenFile = files[rand.Next(files.Count)];
+        // Update played list and save back to file
+        playedFiles.Add(chosenFile);
+        File.WriteAllLines(playedFilePath, playedFiles);
+        // Build JSON for OBS request
+        var request = new
+        {
+            inputName = sourceName,
+            inputSettings = new
+            {
+                local_file = chosenFile
+            },
+            overlay = true
+        };
+        string jsonPayload = JsonSerializer.Serialize(request);
+        // Send raw OBS request
+        CPH.ObsSendRaw("SetInputSettings", jsonPayload);
+        // Set args for other actions
+        CPH.SetArgument("randomVideo", chosenFile);
+        return true;
+    }
+}
